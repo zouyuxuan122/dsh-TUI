@@ -726,7 +726,14 @@ async function scenarioEditState(): Promise<string> {
     )
     app.stdin.write(CTRL_A)
     await waitFor(scenario, 'dashboard to park the composer', () => dashboardVisible(app), 8000)
-    assertTrue(scenario, 'composer unmounted behind the dashboard', !composerMounted(app))
+    // dashboard 可见与作曲槽卸载分属两次渲染提交：CI 负载尖峰下 waitFor 等到的
+    // 可能是仍挂着作曲槽的过渡帧。等待与断言共用同一个停泊稳态谓词
+    // （term-test #561 写法），不在中间帧上断言。
+    assertTrue(
+      scenario,
+      'composer unmounted behind the dashboard',
+      await settled(() => dashboardVisible(app) && !composerMounted(app), { timeoutMs: 8000 }),
+    )
     // Attribution lock (CodeRabbit): while parked, the capability is still
     // held and nothing has released it yet — so the release observed after
     // unmount() can only come from Chat's own teardown effect.
